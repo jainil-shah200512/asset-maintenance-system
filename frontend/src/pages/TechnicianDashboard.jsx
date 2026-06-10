@@ -36,6 +36,7 @@ function TechnicianDashboard() {
         { title: "Material Approved", value: data.materialApproved, status: "MATERIAL_APPROVED" },
         { title: "Completed", value: data.completed, status: "COMPLETED" },
         { title: "Confirmed", value: data.confirmed, status: "CONFIRMED" },
+        { title: "Rework Required", value: data.reworkRequired, status: "REWORK_REQUIRED" },
         { title: "Total Assigned Tasks", value: data.totalAssignedTasks, status: null },
       ]
     : [];

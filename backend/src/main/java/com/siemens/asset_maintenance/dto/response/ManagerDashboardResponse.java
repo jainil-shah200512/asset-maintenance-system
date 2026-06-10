@@ -15,6 +15,7 @@ public class ManagerDashboardResponse {
     private long materialRejected;
     private long completed;
     private long confirmed;
+    private long reworkRequired;
     private long closed;
     private long totalTasks;
 }

@@ -96,5 +96,14 @@ public class TaskController {
         return ResponseEntity.ok(taskService.closeTask(id, request));
     }
 
+    @PutMapping("/{id}/reject")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<TaskResponse> rejectTask(
+            @PathVariable Long id,
+            @RequestBody TaskActionRequest request
+    ) {
+        return ResponseEntity.ok(taskService.rejectTask(id, request));
+    }
+
 
 }

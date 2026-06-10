@@ -14,6 +14,7 @@ function TaskCard({ task }) {
     COMPLETED: "bg-green-100 text-green-700",
     CONFIRMED: "bg-teal-100 text-teal-700",
     CLOSED: "bg-slate-200 text-slate-700",
+    REWORK_REQUIRED: "bg-red-100 text-red-700",
   };
 
   const priorityColorMap = {

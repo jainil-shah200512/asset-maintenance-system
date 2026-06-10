@@ -11,6 +11,7 @@ public class TechnicianDashboardResponse {
     private long pendingMaterialApproval;
     private long materialApproved;
     private long completed;
+    private long reworkRequired;
     private long confirmed;
     private long totalAssignedTasks;
 }

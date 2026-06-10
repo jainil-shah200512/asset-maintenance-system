@@ -35,6 +35,7 @@ function TasksPage() {
     "MATERIAL_REJECTED",
     "COMPLETED",
     "CONFIRMED",
+    "REWORK_REQUIRED",
   ];
 
   const priorityOptions = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];

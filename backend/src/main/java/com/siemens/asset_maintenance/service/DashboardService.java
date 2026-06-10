@@ -38,11 +38,13 @@ public class DashboardService {
         long completed = taskRepository.countByStatus(TaskStatus.COMPLETED);
         long confirmed = taskRepository.countByStatus(TaskStatus.CONFIRMED);
         long closed = taskRepository.countByStatus(TaskStatus.CLOSED);
+        long reworkRequired = taskRepository.countByStatus(TaskStatus.REWORK_REQUIRED);
+
 
         long totalTasks =
                 reported + underReview + assigned + inProgress +
                         pendingMaterialApproval + materialApproved + materialRejected +
-                        completed + confirmed + closed;
+                        completed + reworkRequired + confirmed + closed;
 
         return new ManagerDashboardResponse(
                 reported,
@@ -53,10 +55,12 @@ public class DashboardService {
                 materialApproved,
                 materialRejected,
                 completed,
+                reworkRequired,
                 confirmed,
                 closed,
                 totalTasks
         );
+
     }
 
     public TechnicianDashboardResponse getTechnicianDashboard() {
@@ -72,10 +76,13 @@ public class DashboardService {
         long materialApproved = taskRepository.countByAssignedToAndStatus(currentUser, TaskStatus.MATERIAL_APPROVED);
         long completed = taskRepository.countByAssignedToAndStatus(currentUser, TaskStatus.COMPLETED);
         long confirmed = taskRepository.countByAssignedToAndStatus(currentUser, TaskStatus.CONFIRMED);
+        long reworkRequired = taskRepository.countByAssignedToAndStatus(currentUser, TaskStatus.REWORK_REQUIRED);
+
 
         long totalAssignedTasks =
                 assigned + inProgress + pendingMaterialApproval +
-                        materialApproved + completed + confirmed;
+                        materialApproved + completed + reworkRequired + confirmed;
+
 
         return new TechnicianDashboardResponse(
                 assigned,
@@ -83,9 +90,11 @@ public class DashboardService {
                 pendingMaterialApproval,
                 materialApproved,
                 completed,
+                reworkRequired,
                 confirmed,
                 totalAssignedTasks
         );
+
     }
 
     public UserDashboardResponse getUserDashboard() {

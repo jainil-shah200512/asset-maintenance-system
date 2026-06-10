@@ -9,6 +9,7 @@ public enum TaskStatus {
     MATERIAL_APPROVED,
     MATERIAL_REJECTED,
     COMPLETED,
+    REWORK_REQUIRED,
     CONFIRMED,
     CLOSED
 }

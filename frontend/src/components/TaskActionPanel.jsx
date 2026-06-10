@@ -1,27 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import API from "../api/api";
 import { getRole } from "../utils/auth";
-import { useEffect} from "react";
 
 function TaskActionPanel({ task, onRefresh }) {
   const role = getRole();
+
   const [technicians, setTechnicians] = useState([]);
-
-  useEffect(() => {
-  const fetchTechnicians = async () => {
-    try {
-      const response = await API.get("/users/technicians");
-      setTechnicians(response.data || []);
-    } catch (err) {
-      console.error("Failed to load technicians", err);
-    }
-  };
-
-  if (role === "MANAGER") {
-    fetchTechnicians();
-  }
-}, [role]);
-
   const [assignData, setAssignData] = useState({
     technicianId: "",
     remarks: "",
@@ -30,6 +14,21 @@ function TaskActionPanel({ task, onRefresh }) {
   const [actionRemarks, setActionRemarks] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fetchTechnicians = async () => {
+      try {
+        const response = await API.get("/users/technicians");
+        setTechnicians(response.data || []);
+      } catch (err) {
+        console.error("Failed to load technicians", err);
+      }
+    };
+
+    if (role === "MANAGER") {
+      fetchTechnicians();
+    }
+  }, [role]);
 
   const handleAssignChange = (e) => {
     setError("");
@@ -70,6 +69,12 @@ function TaskActionPanel({ task, onRefresh }) {
       setLoading(true);
       setError("");
 
+      if (endpoint === "reject" && !actionRemarks.trim()) {
+        setError("Remarks are required when rejecting completed work.");
+        setLoading(false);
+        return;
+      }
+
       await API.put(`/tasks/${task.id}/${endpoint}`, {
         remarks: actionRemarks,
       });
@@ -93,19 +98,23 @@ function TaskActionPanel({ task, onRefresh }) {
     role === "MANAGER" &&
     task.status === "COMPLETED";
 
+  const showReject =
+    role === "MANAGER" &&
+    task.status === "COMPLETED";
+
   const showClose =
-  role === "MANAGER" &&
-  task.status === "CONFIRMED";
+    role === "MANAGER" &&
+    task.status === "CONFIRMED";
 
   const showStart =
     role === "TECHNICIAN" &&
-    ["ASSIGNED", "MATERIAL_APPROVED"].includes(task.status);
+    ["ASSIGNED", "MATERIAL_APPROVED", "REWORK_REQUIRED"].includes(task.status);
 
   const showComplete =
     role === "TECHNICIAN" &&
     ["IN_PROGRESS", "MATERIAL_APPROVED"].includes(task.status);
 
-  if (!showAssign && !showConfirm && !showClose && !showStart && !showComplete) {
+  if (!showAssign && !showConfirm && !showReject && !showClose && !showStart && !showComplete) {
     return null;
   }
 
@@ -125,36 +134,39 @@ function TaskActionPanel({ task, onRefresh }) {
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <h4 className="text-sm font-semibold text-slate-800">Assign Task</h4>
             <p className="mt-1 text-xs text-slate-500">
-              Select the technician from below
+              Select a technician from the dropdown.
             </p>
 
-            <form onSubmit={handleAssign} className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <form
+              onSubmit={handleAssign}
+              className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2"
+            >
               <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Select Technician
-                  </label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Select Technician
+                </label>
 
-                  <select
-                    name="technicianId"
-                    value={assignData.technicianId}
-                    onChange={handleAssignChange}
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-                    required
-                  >
-                    <option value="">Select technician</option>
+                <select
+                  name="technicianId"
+                  value={assignData.technicianId}
+                  onChange={handleAssignChange}
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                  required
+                >
+                  <option value="">Select technician</option>
 
-                    {technicians.map((tech) => (
-                      <option key={tech.id} value={tech.id}>
-                        {tech.fullName} ({tech.email})
-                      </option>
-                    ))}
-                  </select>
-                
-                  {technicians.length === 0 && (
-                    <p className="mt-2 text-xs text-slate-500">
-                      No technicians found or still loading...
-                    </p>
-                  )}
+                  {technicians.map((tech) => (
+                    <option key={tech.id} value={tech.id}>
+                      {tech.fullName} ({tech.email})
+                    </option>
+                  ))}
+                </select>
+
+                {technicians.length === 0 && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    No technicians found or still loading...
+                  </p>
+                )}
               </div>
 
               <div>
@@ -184,8 +196,8 @@ function TaskActionPanel({ task, onRefresh }) {
           </div>
         )}
 
-        {/* Common remarks box for start / complete / confirm */}
-        {(showStart || showComplete || showConfirm || showClose) && (
+        {/* Common remarks box for start / complete / confirm / reject / close */}
+        {(showStart || showComplete || showConfirm || showReject || showClose) && (
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <label className="mb-2 block text-sm font-medium text-slate-700">
               Remarks
@@ -193,7 +205,7 @@ function TaskActionPanel({ task, onRefresh }) {
             <textarea
               value={actionRemarks}
               onChange={(e) => setActionRemarks(e.target.value)}
-              placeholder="Enter remarks (optional)"
+              placeholder="Enter remarks (optional for most actions, required for reject)"
               rows={3}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
             />
@@ -205,7 +217,11 @@ function TaskActionPanel({ task, onRefresh }) {
                   disabled={loading}
                   className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                 >
-                  {loading ? "Processing..." : task.status === "MATERIAL_APPROVED" ? "Resume Task" : "Start Task"}
+                  {loading
+                    ? "Processing..."
+                    : ["MATERIAL_APPROVED", "REWORK_REQUIRED"].includes(task.status)
+                    ? "Resume Task"
+                    : "Start Task"}
                 </button>
               )}
 
@@ -228,6 +244,17 @@ function TaskActionPanel({ task, onRefresh }) {
                   {loading ? "Processing..." : "Confirm Task"}
                 </button>
               )}
+
+              {showReject && (
+                <button
+                  onClick={() => handleSimpleAction("reject")}
+                  disabled={loading}
+                  className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+                >
+                  {loading ? "Processing..." : "Reject Work"}
+                </button>
+              )}
+
               {showClose && (
                 <button
                   onClick={() => handleSimpleAction("close")}

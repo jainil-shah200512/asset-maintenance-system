@@ -2,9 +2,13 @@ package com.siemens.asset_maintenance.service;
 
 import com.siemens.asset_maintenance.dto.request.AssignTaskRequest;
 import com.siemens.asset_maintenance.dto.request.CreateTaskRequest;
+import com.siemens.asset_maintenance.dto.request.TaskActionRequest;
 import com.siemens.asset_maintenance.dto.response.ActivityLogResponse;
 import com.siemens.asset_maintenance.dto.response.TaskResponse;
-import com.siemens.asset_maintenance.entity.*;
+import com.siemens.asset_maintenance.entity.ActivityLog;
+import com.siemens.asset_maintenance.entity.Asset;
+import com.siemens.asset_maintenance.entity.Task;
+import com.siemens.asset_maintenance.entity.User;
 import com.siemens.asset_maintenance.entity.enums.RoleName;
 import com.siemens.asset_maintenance.entity.enums.TaskPriority;
 import com.siemens.asset_maintenance.entity.enums.TaskStatus;
@@ -14,25 +18,17 @@ import com.siemens.asset_maintenance.repository.TaskRepository;
 import com.siemens.asset_maintenance.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-
-import com.siemens.asset_maintenance.dto.request.TaskActionRequest;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.server.ResponseStatusException;
-
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Random;
-import org.springframework.transaction.annotation.Transactional;
-import com.siemens.asset_maintenance.dto.response.ActivityLogResponse;
+
 @Service
 @RequiredArgsConstructor
 public class TaskService {
@@ -44,6 +40,11 @@ public class TaskService {
 
     public TaskResponse createTask(CreateTaskRequest request) {
         User currentUser = getCurrentUser();
+
+        if (!List.of(RoleName.USER, RoleName.MANAGER, RoleName.ADMIN)
+                .contains(currentUser.getRole().getRoleName())) {
+            throw new AccessDeniedException("Only USER, MANAGER, or ADMIN can create tasks");
+        }
 
         Task task = new Task();
         task.setTaskCode(generateTaskCode());
@@ -87,7 +88,7 @@ public class TaskService {
         List<Task> tasks;
 
         switch (role) {
-            case MANAGER,ADMIN -> {
+            case MANAGER, ADMIN -> {
                 if (safeKeyword.isBlank() && status == null && priority == null) {
                     tasks = taskRepository.findAll();
                 } else {
@@ -118,19 +119,17 @@ public class TaskService {
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .map(this::mapToResponse)
                 .toList();
-
     }
 
     public TaskResponse getTaskById(Long id) {
         User currentUser = getCurrentUser();
 
-        Task task = taskRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + id));
+        Task task = getTask(id);
 
         RoleName role = currentUser.getRole().getRoleName();
 
         boolean allowed = switch (role) {
-            case MANAGER,ADMIN -> true;
+            case MANAGER, ADMIN -> true;
             case TECHNICIAN -> task.getAssignedTo() != null &&
                     task.getAssignedTo().getId().equals(currentUser.getId());
             case USER -> task.getReportedBy() != null &&
@@ -145,18 +144,13 @@ public class TaskService {
     }
 
     public TaskResponse assignTask(Long taskId, AssignTaskRequest request) {
-
         User manager = getCurrentUser();
 
         if (manager.getRole().getRoleName() != RoleName.MANAGER) {
             throw new AccessDeniedException("Only MANAGER can assign tasks");
         }
 
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Task not found"
-                ));
+        Task task = getTask(taskId);
 
         ensureTaskNotClosed(task);
 
@@ -191,14 +185,278 @@ public class TaskService {
 
         task.setAssignedTo(technician);
         task.setAssignedBy(manager);
+        task.setAssignedAt(LocalDateTime.now());
         task.setStatus(TaskStatus.ASSIGNED);
         task.setUpdatedAt(LocalDateTime.now());
 
         Task updated = taskRepository.save(task);
 
-        saveActivityLog(updated, manager, "Task assigned", oldStatus, TaskStatus.ASSIGNED, request.getRemarks());
+        saveActivityLog(
+                updated,
+                manager,
+                "Task assigned",
+                oldStatus,
+                TaskStatus.ASSIGNED,
+                request.getRemarks()
+        );
 
         return mapToResponse(updated);
+    }
+
+    @Transactional
+    public TaskResponse startTask(Long taskId, TaskActionRequest request) {
+        User technician = getCurrentUser();
+
+        if (technician.getRole().getRoleName() != RoleName.TECHNICIAN) {
+            throw new AccessDeniedException("Only TECHNICIAN can start tasks");
+        }
+
+        Task task = getTask(taskId);
+
+        ensureTaskNotClosed(task);
+
+        if (task.getAssignedTo() == null || !task.getAssignedTo().getId().equals(technician.getId())) {
+            throw new AccessDeniedException("This task is not assigned to you");
+        }
+
+        if (!List.of(TaskStatus.ASSIGNED, TaskStatus.MATERIAL_APPROVED, TaskStatus.REWORK_REQUIRED)
+                .contains(task.getStatus())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Task must be ASSIGNED, MATERIAL_APPROVED, or REWORK_REQUIRED to start"
+            );
+        }
+
+        TaskStatus oldStatus = task.getStatus();
+
+        task.setStatus(TaskStatus.IN_PROGRESS);
+
+        if (task.getStartedAt() == null) {
+            task.setStartedAt(LocalDateTime.now());
+        }
+
+        task.setUpdatedAt(LocalDateTime.now());
+
+        Task updatedTask = taskRepository.save(task);
+
+        saveActivityLog(
+                updatedTask,
+                technician,
+                "Task started",
+                oldStatus,
+                TaskStatus.IN_PROGRESS,
+                request != null ? request.getRemarks() : null
+        );
+
+        return mapToResponse(updatedTask);
+    }
+
+    @Transactional
+    public TaskResponse completeTask(Long taskId, TaskActionRequest request) {
+        User technician = getCurrentUser();
+
+        if (technician.getRole().getRoleName() != RoleName.TECHNICIAN) {
+            throw new AccessDeniedException("Only TECHNICIAN can complete tasks");
+        }
+
+        Task task = getTask(taskId);
+
+        ensureTaskNotClosed(task);
+
+        if (task.getAssignedTo() == null || !task.getAssignedTo().getId().equals(technician.getId())) {
+            throw new AccessDeniedException("This task is not assigned to you");
+        }
+
+        if (!List.of(TaskStatus.IN_PROGRESS, TaskStatus.MATERIAL_APPROVED).contains(task.getStatus())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Task must be IN_PROGRESS or MATERIAL_APPROVED to complete"
+            );
+        }
+
+        TaskStatus oldStatus = task.getStatus();
+
+        task.setStatus(TaskStatus.COMPLETED);
+        task.setCompletedAt(LocalDateTime.now());
+        task.setUpdatedAt(LocalDateTime.now());
+
+        Task updatedTask = taskRepository.save(task);
+
+        saveActivityLog(
+                updatedTask,
+                technician,
+                "Task completed",
+                oldStatus,
+                TaskStatus.COMPLETED,
+                request != null ? request.getRemarks() : null
+        );
+
+        return mapToResponse(updatedTask);
+    }
+
+    @Transactional
+    public TaskResponse rejectTask(Long taskId, TaskActionRequest request) {
+        User manager = getCurrentUser();
+
+        if (manager.getRole().getRoleName() != RoleName.MANAGER) {
+            throw new AccessDeniedException("Only MANAGER can reject completed tasks");
+        }
+
+        Task task = getTask(taskId);
+
+        ensureTaskNotClosed(task);
+
+        if (task.getStatus() != TaskStatus.COMPLETED) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Only COMPLETED tasks can be rejected for rework"
+            );
+        }
+
+        if (request == null || request.getRemarks() == null || request.getRemarks().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Remarks are required when rejecting a completed task"
+            );
+        }
+
+        TaskStatus oldStatus = task.getStatus();
+
+        task.setStatus(TaskStatus.REWORK_REQUIRED);
+        task.setCompletedAt(null);
+        task.setUpdatedAt(LocalDateTime.now());
+
+        Task updatedTask = taskRepository.save(task);
+
+        saveActivityLog(
+                updatedTask,
+                manager,
+                "Task completion rejected",
+                oldStatus,
+                TaskStatus.REWORK_REQUIRED,
+                request.getRemarks()
+        );
+
+        return mapToResponse(updatedTask);
+    }
+
+    @Transactional
+    public TaskResponse confirmTask(Long taskId, TaskActionRequest request) {
+        User manager = getCurrentUser();
+
+        if (manager.getRole().getRoleName() != RoleName.MANAGER) {
+            throw new AccessDeniedException("Only MANAGER can confirm tasks");
+        }
+
+        Task task = getTask(taskId);
+
+        ensureTaskNotClosed(task);
+
+        if (task.getStatus() != TaskStatus.COMPLETED) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Only COMPLETED tasks can be confirmed"
+            );
+        }
+
+        TaskStatus oldStatus = task.getStatus();
+
+        task.setStatus(TaskStatus.CONFIRMED);
+        task.setConfirmedBy(manager);
+        task.setConfirmedAt(LocalDateTime.now());
+        task.setUpdatedAt(LocalDateTime.now());
+
+        Task updatedTask = taskRepository.save(task);
+
+        saveActivityLog(
+                updatedTask,
+                manager,
+                "Task confirmed",
+                oldStatus,
+                TaskStatus.CONFIRMED,
+                request != null ? request.getRemarks() : null
+        );
+
+        return mapToResponse(updatedTask);
+    }
+
+    public TaskResponse closeTask(Long taskId, TaskActionRequest request) {
+        User manager = getCurrentUser();
+
+        if (manager.getRole().getRoleName() != RoleName.MANAGER) {
+            throw new AccessDeniedException("Only MANAGER can close tasks");
+        }
+
+        Task task = getTask(taskId);
+
+        if (task.getStatus() != TaskStatus.CONFIRMED) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Only CONFIRMED tasks can be closed"
+            );
+        }
+
+        TaskStatus oldStatus = task.getStatus();
+
+        task.setStatus(TaskStatus.CLOSED);
+        task.setUpdatedAt(LocalDateTime.now());
+
+        Task updatedTask = taskRepository.save(task);
+
+        saveActivityLog(
+                updatedTask,
+                manager,
+                "Task closed",
+                oldStatus,
+                TaskStatus.CLOSED,
+                request != null ? request.getRemarks() : null
+        );
+
+        return mapToResponse(updatedTask);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActivityLogResponse> getTaskActivityLogs(Long taskId) {
+        User currentUser = getCurrentUser();
+        Task task = getTask(taskId);
+
+        if (!canViewTask(currentUser, task)) {
+            throw new AccessDeniedException("You are not allowed to view activity logs for this task");
+        }
+
+        return activityLogRepository.findByTaskOrderByCreatedAtAsc(task)
+                .stream()
+                .map(this::mapActivityLogToResponse)
+                .toList();
+    }
+
+    private boolean canViewTask(User currentUser, Task task) {
+        RoleName role = currentUser.getRole().getRoleName();
+
+        return switch (role) {
+            case MANAGER, ADMIN -> true;
+            case TECHNICIAN -> task.getAssignedTo() != null &&
+                    task.getAssignedTo().getId().equals(currentUser.getId());
+            case USER -> task.getReportedBy() != null &&
+                    task.getReportedBy().getId().equals(currentUser.getId());
+        };
+    }
+
+    private Task getTask(Long taskId) {
+        return taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Task not found with id: " + taskId
+                ));
+    }
+
+    private void ensureTaskNotClosed(Task task) {
+        if (task.getStatus() == TaskStatus.CLOSED) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Task is already CLOSED and cannot be modified"
+            );
+        }
     }
 
     private void saveActivityLog(Task task,
@@ -224,13 +482,19 @@ public class TaskService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || authentication.getName() == null) {
-            throw new RuntimeException("No authenticated user found");
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "No authenticated user found"
+            );
         }
 
         String email = authentication.getName();
 
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Current user not found in database: " + email));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Current user not found in database: " + email
+                ));
     }
 
     private String generateTaskCode() {
@@ -286,159 +550,6 @@ public class TaskService {
         );
     }
 
-    @Transactional
-    public TaskResponse startTask(Long taskId, TaskActionRequest request) {
-        User technician = getCurrentUser();
-
-        if (technician.getRole().getRoleName() != RoleName.TECHNICIAN) {
-            throw new AccessDeniedException("Only TECHNICIAN can start tasks");
-        }
-
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + taskId));
-
-        if (task.getAssignedTo() == null || !task.getAssignedTo().getId().equals(technician.getId())) {
-            throw new AccessDeniedException("This task is not assigned to you");
-        }
-
-        if (task.getStatus() != TaskStatus.ASSIGNED && task.getStatus() != TaskStatus.MATERIAL_APPROVED) {
-            throw new RuntimeException("Task can only be started when status is ASSIGNED or MATERIAL_APPROVED");
-        }
-
-        TaskStatus oldStatus = task.getStatus();
-
-        task.setStatus(TaskStatus.IN_PROGRESS);
-        if (task.getStartedAt() == null) {
-            task.setStartedAt(LocalDateTime.now());
-        }
-        task.setUpdatedAt(LocalDateTime.now());
-
-        Task updatedTask = taskRepository.save(task);
-
-        saveActivityLog(
-                updatedTask,
-                technician,
-                "Task started",
-                oldStatus,
-                TaskStatus.IN_PROGRESS,
-                request != null ? request.getRemarks() : null
-        );
-
-        return mapToResponse(updatedTask);
-    }
-
-    @Transactional
-    public TaskResponse completeTask(Long taskId, TaskActionRequest request) {
-        User technician = getCurrentUser();
-
-        if (technician.getRole().getRoleName() != RoleName.TECHNICIAN) {
-            throw new AccessDeniedException("Only TECHNICIAN can complete tasks");
-        }
-
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + taskId));
-
-        if (task.getAssignedTo() == null || !task.getAssignedTo().getId().equals(technician.getId())) {
-            throw new AccessDeniedException("This task is not assigned to you");
-        }
-
-        if (task.getStatus() != TaskStatus.IN_PROGRESS && task.getStatus() != TaskStatus.MATERIAL_APPROVED) {
-            throw new RuntimeException("Task can only be completed when status is IN_PROGRESS or MATERIAL_APPROVED");
-        }
-
-        if (!List.of(TaskStatus.IN_PROGRESS, TaskStatus.MATERIAL_APPROVED).contains(task.getStatus())) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Task must be IN_PROGRESS or MATERIAL_APPROVED to complete"
-            );
-        }
-
-
-        TaskStatus oldStatus = task.getStatus();
-
-        task.setStatus(TaskStatus.COMPLETED);
-        task.setCompletedAt(LocalDateTime.now());
-        task.setUpdatedAt(LocalDateTime.now());
-
-        Task updatedTask = taskRepository.save(task);
-
-        saveActivityLog(
-                updatedTask,
-                technician,
-                "Task completed",
-                oldStatus,
-                TaskStatus.COMPLETED,
-                request != null ? request.getRemarks() : null
-        );
-
-        return mapToResponse(updatedTask);
-    }
-
-    @Transactional
-    public TaskResponse confirmTask(Long taskId, TaskActionRequest request) {
-        User manager = getCurrentUser();
-
-        if (manager.getRole().getRoleName() != RoleName.MANAGER) {
-            throw new AccessDeniedException("Only MANAGER can confirm tasks");
-        }
-
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + taskId));
-
-        if (task.getStatus() != TaskStatus.COMPLETED) {
-            throw new RuntimeException("Only COMPLETED tasks can be confirmed");
-        }
-
-        TaskStatus oldStatus = task.getStatus();
-
-        task.setStatus(TaskStatus.CONFIRMED);
-        task.setConfirmedBy(manager);
-        task.setConfirmedAt(LocalDateTime.now());
-        task.setUpdatedAt(LocalDateTime.now());
-
-        Task updatedTask = taskRepository.save(task);
-
-        saveActivityLog(
-                updatedTask,
-                manager,
-                "Task confirmed",
-                oldStatus,
-                TaskStatus.CONFIRMED,
-                request != null ? request.getRemarks() : null
-        );
-
-        return mapToResponse(updatedTask);
-    }
-
-    @Transactional(readOnly = true)
-    public List<ActivityLogResponse> getTaskActivityLogs(Long taskId) {
-        User currentUser = getCurrentUser();
-
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + taskId));
-
-        if (!canViewTask(currentUser, task)) {
-            throw new AccessDeniedException("You are not allowed to view activity logs for this task");
-        }
-
-        return activityLogRepository.findByTaskOrderByCreatedAtAsc(task)
-                .stream()
-                .map(this::mapActivityLogToResponse)
-                .toList();
-    }
-
-    private boolean canViewTask(User currentUser, Task task) {
-        RoleName role = currentUser.getRole().getRoleName();
-
-        return switch (role) {
-            case MANAGER,ADMIN-> true;
-            case TECHNICIAN -> task.getAssignedTo() != null &&
-                    task.getAssignedTo().getId().equals(currentUser.getId());
-            case USER -> task.getReportedBy() != null &&
-                    task.getReportedBy().getId().equals(currentUser.getId());
-        };
-    }
-
     private ActivityLogResponse mapActivityLogToResponse(ActivityLog log) {
         return new ActivityLogResponse(
                 log.getId(),
@@ -451,55 +562,4 @@ public class TaskService {
                 log.getCreatedAt()
         );
     }
-
-    public TaskResponse closeTask(Long taskId, TaskActionRequest request) {
-        User manager = getCurrentUser();
-
-        if (manager.getRole().getRoleName() != RoleName.MANAGER) {
-            throw new AccessDeniedException("Only MANAGER can close tasks");
-        }
-
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Task not found with id: " + taskId
-                ));
-
-        if (task.getStatus() != TaskStatus.CONFIRMED) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Only CONFIRMED tasks can be closed"
-            );
-        }
-
-        TaskStatus oldStatus = task.getStatus();
-
-        task.setStatus(TaskStatus.CLOSED);
-        task.setUpdatedAt(LocalDateTime.now());
-
-        Task updatedTask = taskRepository.save(task);
-
-        saveActivityLog(
-                updatedTask,
-                manager,
-                "Task closed",
-                oldStatus,
-                TaskStatus.CLOSED,
-                request != null ? request.getRemarks() : null
-        );
-
-        return mapToResponse(updatedTask);
-    }
-
-    private void ensureTaskNotClosed(Task task) {
-        if (task.getStatus() == TaskStatus.CLOSED) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Task is already CLOSED and cannot be modified"
-            );
-        }
-    }
-
-
-
 }

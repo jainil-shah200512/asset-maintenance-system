@@ -38,6 +38,7 @@ function ManagerDashboard() {
         { title: "Material Approved", value: data.materialApproved, status: "MATERIAL_APPROVED" },
         { title: "Material Rejected", value: data.materialRejected, status: "MATERIAL_REJECTED" },
         { title: "Completed", value: data.completed, status: "COMPLETED" },
+        { title: "Rework Required", value: data.reworkRequired, status: "REWORK_REQUIRED" },
         { title: "Confirmed", value: data.confirmed, status: "CONFIRMED" },
         { title: "Closed", value: data.closed, status: "CLOSED" },
         { title: "Total Tasks", value: data.totalTasks, status: null },
