@@ -1,4 +1,4 @@
-# Stage 1: Build the Spring Boot app
+# Stage 1: Build app
 FROM maven:3.9.8-eclipse-temurin-21 AS build
 
 WORKDIR /app
@@ -11,7 +11,7 @@ COPY src src
 RUN chmod +x mvnw
 RUN ./mvnw clean package -DskipTests
 
-# Stage 2: Run the app
+# Stage 2: Run app
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
