@@ -38,6 +38,7 @@ public class TaskService {
     private final AssetRepository assetRepository;
     private final ActivityLogRepository activityLogRepository;
 
+    // RC: Let's add @Transactional which modifies two entities (Task and ActivityLog)
     public TaskResponse createTask(CreateTaskRequest request) {
         User currentUser = getCurrentUser();
 
@@ -142,7 +143,7 @@ public class TaskService {
 
         return mapToResponse(task);
     }
-
+    // RC: Let's add @Transactional which modifies two entities (Task and ActivityLog)
     public TaskResponse assignTask(Long taskId, AssignTaskRequest request) {
         User manager = getCurrentUser();
 
@@ -379,7 +380,7 @@ public class TaskService {
 
         return mapToResponse(updatedTask);
     }
-
+// RC: Let's add @Transactional which modifies two entities (Task and ActivityLog)
     public TaskResponse closeTask(Long taskId, TaskActionRequest request) {
         User manager = getCurrentUser();
 
@@ -498,6 +499,8 @@ public class TaskService {
     }
 
     private String generateTaskCode() {
+        // RC: new Random() is instantiated on every call — not thread-safe and wasteful.
+        // Replace with ThreadLocalRandom.current() which is both thread-safe and avoids repeated allocation.
         Random random = new Random();
         String taskCode;
 
@@ -512,6 +515,7 @@ public class TaskService {
 
     private String randomAlphaNumeric(int length) {
         String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        // RC: Same issue — new Random() on every call. Use ThreadLocalRandom.current().
         Random random = new Random();
         StringBuilder sb = new StringBuilder();
 

@@ -113,11 +113,13 @@ public class DashboardService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || authentication.getName() == null) {
+            // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.UNAUTHORIZED) for 401
             throw new RuntimeException("No authenticated user found");
         }
 
         String email = authentication.getName();
 
+        // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR) as this indicates data inconsistency
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Current user not found in database: " + email));
     }

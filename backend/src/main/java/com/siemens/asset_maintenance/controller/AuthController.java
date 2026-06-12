@@ -42,6 +42,7 @@ public class AuthController {
             );
 
         } catch (Exception e) {
+            // RC: Debug statement left in code — replace with a proper logger (e.g. log.warn(...))
             System.out.println("❌ Auth failed: " + e.getClass().getName() + " → " + e.getMessage());
             throw e;
         }

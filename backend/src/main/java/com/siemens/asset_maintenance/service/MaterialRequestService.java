@@ -43,6 +43,7 @@ public class MaterialRequestService {
             throw new AccessDeniedException("Only TECHNICIAN can request materials");
         }
 
+        // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.NOT_FOUND) for 404
         Task task = taskRepository.findById(request.getTaskId())
                 .orElseThrow(() -> new RuntimeException("Task not found with id: " + request.getTaskId()));
 
@@ -80,6 +81,7 @@ public class MaterialRequestService {
     public List<MaterialRequestResponse> getRequestsForTask(Long taskId) {
         User currentUser = getCurrentUser();
 
+        // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.NOT_FOUND) for 404
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found with id: " + taskId));
 
@@ -109,12 +111,14 @@ public class MaterialRequestService {
             throw new AccessDeniedException("Only MANAGER can approve material requests");
         }
 
+        // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.NOT_FOUND) for 404
         MaterialRequest materialRequest = materialRequestRepository.findById(requestId)
                 .orElseThrow(() -> new RuntimeException("Material request not found with id: " + requestId));
 
         Task task = materialRequest.getTask();
 
         if (materialRequest.getStatus() != MaterialRequestStatus.PENDING) {
+            // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.CONFLICT) for 409
             throw new RuntimeException("Only PENDING requests can be approved");
         }
 
@@ -123,6 +127,7 @@ public class MaterialRequestService {
                 : request.getApprovedQuantity();
 
         if (approvedQty <= 0 || approvedQty > materialRequest.getQuantity()) {
+            // RC: RuntimeException returns 400 Bad Request — use ResponseStatusException(HttpStatus.BAD_REQUEST) explicitly for clarity
             throw new RuntimeException("Approved quantity must be between 1 and requested quantity");
         }
 
@@ -168,12 +173,14 @@ public class MaterialRequestService {
             throw new AccessDeniedException("Only MANAGER can reject material requests");
         }
 
+        // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.NOT_FOUND) for 404
         MaterialRequest materialRequest = materialRequestRepository.findById(requestId)
                 .orElseThrow(() -> new RuntimeException("Material request not found with id: " + requestId));
 
         Task task = materialRequest.getTask();
 
         if (materialRequest.getStatus() != MaterialRequestStatus.PENDING) {
+            // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.CONFLICT) for 409
             throw new RuntimeException("Only PENDING requests can be rejected");
         }
 
@@ -227,11 +234,13 @@ public class MaterialRequestService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || authentication.getName() == null) {
+            // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.UNAUTHORIZED) for 401
             throw new RuntimeException("No authenticated user found");
         }
 
         String email = authentication.getName();
 
+        // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR) as this indicates data inconsistency
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Current user not found in database: " + email));
     }
