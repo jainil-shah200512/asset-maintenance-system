@@ -47,6 +47,7 @@ class TaskServiceTest {
 
     private User manager;
     private User technician;
+    private User anotherTechnician;
     private Task task;
 
     @BeforeEach
@@ -75,6 +76,14 @@ class TaskServiceTest {
         technician.setRole(technicianRole);
         technician.setIsActive(true);
 
+        anotherTechnician = new User();
+        anotherTechnician.setId(3L);
+        anotherTechnician.setEmail("othertech@siemens.com");
+        anotherTechnician.setFirstName("Other");
+        anotherTechnician.setLastName("Tech");
+        anotherTechnician.setRole(technicianRole);
+        anotherTechnician.setIsActive(true);
+
         task = new Task();
         task.setId(10L);
         task.setTaskCode("TSK-1001-ABC");
@@ -82,10 +91,6 @@ class TaskServiceTest {
         task.setDescription("Motor is not rotating");
         task.setStatus(TaskStatus.REPORTED);
         task.setCreatedAt(LocalDateTime.now());
-
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("manager@siemens.com", null)
-        );
     }
 
     @AfterEach
@@ -93,8 +98,16 @@ class TaskServiceTest {
         SecurityContextHolder.clearContext();
     }
 
+    private void authenticateAs(String email) {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(email, null)
+        );
+    }
+
     @Test
     void assignTask_shouldAssignSuccessfully() {
+        authenticateAs("manager@siemens.com");
+
         AssignTaskRequest request = new AssignTaskRequest();
         request.setTechnicianId(2L);
         request.setRemarks("Please handle this task.");
@@ -116,6 +129,8 @@ class TaskServiceTest {
 
     @Test
     void assignTask_shouldFail_whenAlreadyAssigned() {
+        authenticateAs("manager@siemens.com");
+
         task.setAssignedTo(technician);
 
         AssignTaskRequest request = new AssignTaskRequest();
@@ -128,7 +143,83 @@ class TaskServiceTest {
     }
 
     @Test
+    void startTask_shouldWork_whenAssignedToCurrentTechnician() {
+        authenticateAs("technician@siemens.com");
+
+        task.setAssignedTo(technician);
+        task.setStatus(TaskStatus.ASSIGNED);
+
+        when(userRepository.findByEmail("technician@siemens.com")).thenReturn(Optional.of(technician));
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TaskActionRequest request = new TaskActionRequest();
+        request.setRemarks("Starting work");
+
+        var response = taskService.startTask(10L, request);
+
+        assertEquals(TaskStatus.IN_PROGRESS, response.getStatus());
+        verify(taskRepository, times(1)).save(task);
+        verify(activityLogRepository, times(1)).save(any());
+    }
+
+    @Test
+    void startTask_shouldFail_whenTaskAssignedToDifferentTechnician() {
+        authenticateAs("technician@siemens.com");
+
+        task.setAssignedTo(anotherTechnician);
+        task.setStatus(TaskStatus.ASSIGNED);
+
+        when(userRepository.findByEmail("technician@siemens.com")).thenReturn(Optional.of(technician));
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+
+        TaskActionRequest request = new TaskActionRequest();
+        request.setRemarks("Trying to start");
+
+        assertThrows(Exception.class, () -> taskService.startTask(10L, request));
+    }
+
+    @Test
+    void completeTask_shouldWork_whenInProgress() {
+        authenticateAs("technician@siemens.com");
+
+        task.setAssignedTo(technician);
+        task.setStatus(TaskStatus.IN_PROGRESS);
+
+        when(userRepository.findByEmail("technician@siemens.com")).thenReturn(Optional.of(technician));
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TaskActionRequest request = new TaskActionRequest();
+        request.setRemarks("Completed task");
+
+        var response = taskService.completeTask(10L, request);
+
+        assertEquals(TaskStatus.COMPLETED, response.getStatus());
+        verify(taskRepository, times(1)).save(task);
+        verify(activityLogRepository, times(1)).save(any());
+    }
+
+    @Test
+    void completeTask_shouldFail_whenWrongState() {
+        authenticateAs("technician@siemens.com");
+
+        task.setAssignedTo(technician);
+        task.setStatus(TaskStatus.ASSIGNED);
+
+        when(userRepository.findByEmail("technician@siemens.com")).thenReturn(Optional.of(technician));
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+
+        TaskActionRequest request = new TaskActionRequest();
+        request.setRemarks("Trying to complete");
+
+        assertThrows(ResponseStatusException.class, () -> taskService.completeTask(10L, request));
+    }
+
+    @Test
     void rejectTask_shouldFail_whenRemarksAreMissing() {
+        authenticateAs("manager@siemens.com");
+
         task.setStatus(TaskStatus.COMPLETED);
 
         TaskActionRequest request = new TaskActionRequest();
@@ -138,5 +229,75 @@ class TaskServiceTest {
         when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
 
         assertThrows(ResponseStatusException.class, () -> taskService.rejectTask(10L, request));
+    }
+
+    @Test
+    void rejectTask_shouldWork_whenCompletedAndRemarksProvided() {
+        authenticateAs("manager@siemens.com");
+
+        task.setStatus(TaskStatus.COMPLETED);
+
+        TaskActionRequest request = new TaskActionRequest();
+        request.setRemarks("Work incomplete, please recheck wiring.");
+
+        when(userRepository.findByEmail("manager@siemens.com")).thenReturn(Optional.of(manager));
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = taskService.rejectTask(10L, request);
+
+        assertEquals(TaskStatus.REWORK_REQUIRED, response.getStatus());
+        verify(taskRepository, times(1)).save(task);
+        verify(activityLogRepository, times(1)).save(any());
+    }
+
+    @Test
+    void confirmTask_shouldFail_whenNotCompleted() {
+        authenticateAs("manager@siemens.com");
+
+        task.setStatus(TaskStatus.IN_PROGRESS);
+
+        when(userRepository.findByEmail("manager@siemens.com")).thenReturn(Optional.of(manager));
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+
+        TaskActionRequest request = new TaskActionRequest();
+        request.setRemarks("Trying to confirm");
+
+        assertThrows(ResponseStatusException.class, () -> taskService.confirmTask(10L, request));
+    }
+
+    @Test
+    void closeTask_shouldFail_whenNotConfirmed() {
+        authenticateAs("manager@siemens.com");
+
+        task.setStatus(TaskStatus.COMPLETED);
+
+        when(userRepository.findByEmail("manager@siemens.com")).thenReturn(Optional.of(manager));
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+
+        TaskActionRequest request = new TaskActionRequest();
+        request.setRemarks("Trying to close");
+
+        assertThrows(ResponseStatusException.class, () -> taskService.closeTask(10L, request));
+    }
+
+    @Test
+    void closeTask_shouldWork_whenConfirmed() {
+        authenticateAs("manager@siemens.com");
+
+        task.setStatus(TaskStatus.CONFIRMED);
+
+        when(userRepository.findByEmail("manager@siemens.com")).thenReturn(Optional.of(manager));
+        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TaskActionRequest request = new TaskActionRequest();
+        request.setRemarks("Closing task");
+
+        var response = taskService.closeTask(10L, request);
+
+        assertEquals(TaskStatus.CLOSED, response.getStatus());
+        verify(taskRepository, times(1)).save(task);
+        verify(activityLogRepository, times(1)).save(any());
     }
 }
