@@ -9,6 +9,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 
 @SpringBootApplication  // ← Must NOT exclude security here
@@ -56,6 +57,7 @@ public class AssetMaintenanceApplication {
 //	}
 
 	@Bean
+	@ConditionalOnProperty(name = "app.seed.enabled", havingValue = "true", matchIfMissing = true)
 	CommandLineRunner seedUsers(RoleRepository roleRepository,
 	                            UserRepository userRepository,
 	                            PasswordEncoder passwordEncoder) {
