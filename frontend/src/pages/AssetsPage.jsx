@@ -75,6 +75,8 @@ function AssetsPage() {
       status: "",
     });
 
+    // RC: setTimeout(0) is a workaround for React's async state updates — setFilters won't reflect
+    // before fetchAssets() runs. Instead, pass the cleared values directly to fetchAssets(). - This is been observed in UI 
     setTimeout(() => {
       fetchAssets();
     }, 0);

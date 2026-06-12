@@ -18,6 +18,7 @@ public class AssetService {
 
     public AssetResponse createAsset(AssetRequest request) {
         if (assetRepository.existsByAssetCode(request.getAssetCode())) {
+            // RC: RuntimeException is caught by GlobalExceptionHandler as 400 Bad Request — should be ResponseStatusException(HttpStatus.CONFLICT) for 409
             throw new RuntimeException("Asset with code already exists: " + request.getAssetCode());
         }
 
@@ -42,12 +43,14 @@ public class AssetService {
     }
 
     public AssetResponse getAssetById(Long id) {
+        // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.NOT_FOUND) for 404
         Asset asset = assetRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Asset not found with id: " + id));
         return mapToResponse(asset);
     }
 
     public AssetResponse getAssetByCode(String assetCode) {
+        // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.NOT_FOUND) for 404
         Asset asset = assetRepository.findByAssetCode(assetCode)
                 .orElseThrow(() -> new RuntimeException("Asset not found with code: " + assetCode));
         return mapToResponse(asset);
@@ -78,11 +81,13 @@ public class AssetService {
     }
 
     public AssetResponse updateAsset(Long id, AssetRequest request) {
+        // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.NOT_FOUND) for 404
         Asset asset = assetRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Asset not found with id: " + id));
 
         if (request.getAssetCode() != null && !request.getAssetCode().equals(asset.getAssetCode())) {
             if (assetRepository.existsByAssetCode(request.getAssetCode())) {
+                // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.CONFLICT) for 409
                 throw new RuntimeException("Another asset already uses code: " + request.getAssetCode());
             }
             asset.setAssetCode(request.getAssetCode());
@@ -105,6 +110,7 @@ public class AssetService {
     }
 
     public void deleteAsset(Long id) {
+        // RC: RuntimeException returns 400 Bad Request — should be ResponseStatusException(HttpStatus.NOT_FOUND) for 404
         Asset asset = assetRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Asset not found with id: " + id));
 
