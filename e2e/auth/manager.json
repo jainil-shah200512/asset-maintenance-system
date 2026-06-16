@@ -1,0 +1,26 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "https://asset-maintenance-system.vercel.app",
+      "localStorage": [
+        {
+          "name": "token",
+          "value": "eyJhbGciOiJIUzM4NCJ9.eyJyb2xlIjoiTUFOQUdFUiIsInN1YiI6Im1hbmFnZXJAc2llbWVucy5jb20iLCJpYXQiOjE3ODE2MzAyMDMsImV4cCI6MTc4MTcxNjYwM30.eDbcYyAdizqOOe53tLGE-vjB4I41qRZCTLkumYvnWfV1srxUVQm_5S8QWCg2wLty"
+        },
+        {
+          "name": "email",
+          "value": "manager@siemens.com"
+        },
+        {
+          "name": "fullName",
+          "value": "Manager User"
+        },
+        {
+          "name": "role",
+          "value": "MANAGER"
+        }
+      ]
+    }
+  ]
+}
