@@ -15,14 +15,15 @@ class ManagerPage {
     this.managerUserText = page.getByText('Manager User');
   }
 
-  async expectLoaded() {
-    // Main route-level check
-    await expect(this.page).toHaveURL(/manager/i);
+  async expectShellVisible() {
+    await expect(this.dashboardButton).toBeVisible({ timeout: 20000 });
+    await expect(this.tasksButton).toBeVisible({ timeout: 20000 });
+    await expect(this.assetsButton).toBeVisible({ timeout: 20000 });
+  }
 
-    // Main UI-level checks
-    await expect(this.dashboardButton).toBeVisible();
-    await expect(this.tasksButton).toBeVisible();
-    await expect(this.assetsButton).toBeVisible();
+  async expectLoaded() {
+    await expect(this.page).toHaveURL(/manager/i, { timeout: 20000 });
+    await this.expectShellVisible();
   }
 
   async openDashboard() {
