@@ -1,0 +1,31 @@
+{
+  "name": "e2e",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report",
+
+    "auth:manager": "playwright test tests/setup/manager-auth.spec.js",
+    "test:auth": "playwright test tests/auth/login.spec.js",
+    "test:manager": "playwright test tests/manager/manager-home.spec.js",
+    "test:logout": "playwright test tests/manager/logout.spec.js",
+    "test:tasks": "playwright test tests/tasks/tasks-home.spec.js",
+    "test:assets": "playwright test tests/assets/assets-home.spec.js",
+    "test:staff": "playwright test tests/staff/staff-home.spec.js",
+
+    "smoke": "npm run auth:manager && playwright test tests/auth/login.spec.js tests/manager/manager-home.spec.js tests/manager/logout.spec.js tests/tasks/tasks-home.spec.js tests/assets/assets-home.spec.js tests/staff/staff-home.spec.js",
+    "smoke:headed": "npm run auth:manager && playwright test tests/auth/login.spec.js tests/manager/manager-home.spec.js tests/manager/logout.spec.js tests/tasks/tasks-home.spec.js tests/assets/assets-home.spec.js tests/staff/staff-home.spec.js --headed",
+    "smoke:ci": "npm run auth:manager && playwright test tests/auth/login.spec.js tests/manager/manager-home.spec.js tests/manager/logout.spec.js tests/tasks/tasks-home.spec.js tests/assets/assets-home.spec.js tests/staff/staff-home.spec.js --workers=1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "^1.61.0",
+    "@types/node": "^25.9.3"
+  }
+}
