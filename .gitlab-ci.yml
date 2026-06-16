@@ -2,6 +2,7 @@ stages:
   - lint
   - build
   - test
+  - e2e
   - security
 
 variables:
@@ -22,6 +23,12 @@ variables:
     key: "$CI_COMMIT_REF_SLUG-frontend"
     paths:
       - frontend/.npm/
+
+.e2e-cache: &e2e-cache
+  cache:
+    key: "$CI_COMMIT_REF_SLUG-e2e"
+    paths:
+      - e2e/.npm/
 
 # ============================================
 # LINT
@@ -103,6 +110,30 @@ test-frontend:
     - cd frontend
     - npm ci --cache .npm --prefer-offline
     - npm test -- --watchAll=false
+  only:
+    - main
+
+# ============================================
+# E2E / PLAYWRIGHT
+# ============================================
+
+e2e-playwright-smoke:
+  stage: e2e
+  image:
+    name: mcr.microsoft.com/playwright:v1.60.0-noble
+    entrypoint: [""]
+  <<: *e2e-cache
+  script:
+    - cd e2e
+    - npm ci --cache .npm --prefer-offline
+    - npm run smoke:ci
+  artifacts:
+    when: always
+    paths:
+      - e2e/playwright-report/
+      - e2e/test-results/
+      - e2e/auth/manager.json
+    expire_in: 7 days
   only:
     - main
 
