@@ -120,7 +120,7 @@ test-frontend:
 e2e-playwright-smoke:
   stage: e2e
   image:
-    name: mcr.microsoft.com/playwright:v1.60.0-noble
+    name: mcr.microsoft.com/playwright:v1.61.0-noble
     entrypoint: [""]
   <<: *e2e-cache
   script:
