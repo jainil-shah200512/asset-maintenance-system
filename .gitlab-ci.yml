@@ -123,14 +123,6 @@ test-api-newman:
     key: "$CI_COMMIT_REF_SLUG-automation"
     paths:
       - automation/node_modules/
-  variables:
-    API_URL: $API_URL
-    MANAGER_EMAIL: $MANAGER_EMAIL
-    MANAGER_PASSWORD: $MANAGER_PASSWORD
-    TECHNICIAN_EMAIL: $TECHNICIAN_EMAIL
-    TECHNICIAN_PASSWORD: $TECHNICIAN_PASSWORD
-    USER_EMAIL: $USER_EMAIL
-    USER_PASSWORD: $USER_PASSWORD
   before_script:
     - cd automation
     - npm ci
