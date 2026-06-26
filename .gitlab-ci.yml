@@ -128,22 +128,25 @@ test-api-newman:
     - npm ci
     - mkdir -p /tmp
     - |
-      cat > /tmp/ci-env.json << EOF
-      {
-        "id": "ci-environment",
-        "name": "CI Environment",
-        "values": [
-          {"key": "api_url", "value": "$API_URL", "type": "string", "enabled": true},
-          {"key": "manager_email", "value": "$MANAGER_EMAIL", "type": "string", "enabled": true},
-          {"key": "manager_password", "value": "$MANAGER_PASSWORD", "type": "string", "enabled": true},
-          {"key": "technician_email", "value": "$TECHNICIAN_EMAIL", "type": "string", "enabled": true},
-          {"key": "technician_password", "value": "$TECHNICIAN_PASSWORD", "type": "string", "enabled": true},
-          {"key": "user_email", "value": "$USER_EMAIL", "type": "string", "enabled": true},
-          {"key": "user_password", "value": "$USER_PASSWORD", "type": "string", "enabled": true}
+      node -e "
+      const fs = require('fs');
+      const envFile = {
+        id: 'ci-environment',
+        name: 'CI Environment',
+        values: [
+          {key: 'api_url', value: process.env.API_URL || '', type: 'string', enabled: true},
+          {key: 'manager_email', value: process.env.MANAGER_EMAIL || '', type: 'string', enabled: true},
+          {key: 'manager_password', value: process.env.MANAGER_PASSWORD || '', type: 'string', enabled: true},
+          {key: 'technician_email', value: process.env.TECHNICIAN_EMAIL || '', type: 'string', enabled: true},
+          {key: 'technician_password', value: process.env.TECHNICIAN_PASSWORD || '', type: 'string', enabled: true},
+          {key: 'user_email', value: process.env.USER_EMAIL || '', type: 'string', enabled: true},
+          {key: 'user_password', value: process.env.USER_PASSWORD || '', type: 'string', enabled: true}
         ]
-      }
-      EOF
-    - echo "✓ Environment file created" && cat /tmp/ci-env.json
+      };
+      fs.writeFileSync('/tmp/ci-env.json', JSON.stringify(envFile, null, 2));
+      console.log('✓ Environment file created');
+      console.log(JSON.stringify(envFile, null, 2));
+      "
   script:
     - npm run test:api -- --environment /tmp/ci-env.json
   artifacts:
