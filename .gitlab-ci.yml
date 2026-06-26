@@ -134,37 +134,24 @@ test-api-newman:
   before_script:
     - cd automation
     - npm ci
-    # Debug: Verify environment variables are set
-    - echo "Checking CI/CD variables..."
-    - echo "API_URL is set: $([ -z '$API_URL' ] && echo 'NO' || echo 'YES')"
-    # Create environment JSON file
+    - mkdir -p /tmp
     - |
-      python3 << 'PYSCRIPT'
-      import json
-      import os
-      
-      env_data = {
+      cat > /tmp/ci-env.json << EOF
+      {
         "id": "ci-environment",
         "name": "CI Environment",
         "values": [
-          {"key": "api_url", "value": os.getenv("API_URL", ""), "type": "string", "enabled": True},
-          {"key": "manager_email", "value": os.getenv("MANAGER_EMAIL", ""), "type": "string", "enabled": True},
-          {"key": "manager_password", "value": os.getenv("MANAGER_PASSWORD", ""), "type": "string", "enabled": True},
-          {"key": "technician_email", "value": os.getenv("TECHNICIAN_EMAIL", ""), "type": "string", "enabled": True},
-          {"key": "technician_password", "value": os.getenv("TECHNICIAN_PASSWORD", ""), "type": "string", "enabled": True},
-          {"key": "user_email", "value": os.getenv("USER_EMAIL", ""), "type": "string", "enabled": True},
-          {"key": "user_password", "value": os.getenv("USER_PASSWORD", ""), "type": "string", "enabled": True}
+          {"key": "api_url", "value": "$API_URL", "type": "string", "enabled": true},
+          {"key": "manager_email", "value": "$MANAGER_EMAIL", "type": "string", "enabled": true},
+          {"key": "manager_password", "value": "$MANAGER_PASSWORD", "type": "string", "enabled": true},
+          {"key": "technician_email", "value": "$TECHNICIAN_EMAIL", "type": "string", "enabled": true},
+          {"key": "technician_password", "value": "$TECHNICIAN_PASSWORD", "type": "string", "enabled": true},
+          {"key": "user_email", "value": "$USER_EMAIL", "type": "string", "enabled": true},
+          {"key": "user_password", "value": "$USER_PASSWORD", "type": "string", "enabled": true}
         ]
       }
-      
-      with open("/tmp/ci-env.json", "w") as f:
-        json.dump(env_data, f, indent=2)
-      
-      print("✓ Environment file created successfully")
-      print(f"✓ API_URL: {os.getenv('API_URL', 'NOT SET')}")
-      PYSCRIPT
-    # Verify the file was created
-    - test -f /tmp/ci-env.json && echo "✓ Environment file exists" || echo "✗ Environment file missing"
+      EOF
+    - echo "✓ Environment file created" && cat /tmp/ci-env.json
   script:
     - npm run test:api -- --environment /tmp/ci-env.json
   artifacts:
