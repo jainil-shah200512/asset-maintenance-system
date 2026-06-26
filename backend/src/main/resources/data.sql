@@ -1,31 +1,26 @@
 -- Initialize test data for CI/CD pipeline
--- Test Users with pre-hashed passwords
+-- Test data with bcrypt hashed passwords: Manager@1234, Tech@1234, User@1234
 
--- Create roles if they don't exist
-INSERT INTO role (name) VALUES ('MANAGER') ON CONFLICT DO NOTHING;
-INSERT INTO role (name) VALUES ('TECHNICIAN') ON CONFLICT DO NOTHING;
-INSERT INTO role (name) VALUES ('USER') ON CONFLICT DO NOTHING;
+-- Create roles (ignore if already exist)
+INSERT INTO role (name) VALUES ('MANAGER');
+INSERT INTO role (name) VALUES ('TECHNICIAN');
+INSERT INTO role (name) VALUES ('USER');
 
--- Create test users (adjust passwords based on your backend hashing)
--- Note: These are placeholder queries - adjust based on your actual User/Role table structure
+-- Create test users
 INSERT INTO "user" (email, password, role_id, created_at, updated_at) 
-SELECT 'manager@test.com', '$2a$10$slYQmyNdGzin7olVN3p5Be7DQwAjqAH5eNjigNV9nUtNrgQlC/v0m', r.id, NOW(), NOW()
-FROM role r WHERE r.name = 'MANAGER'
-ON CONFLICT (email) DO NOTHING;
+VALUES ('manager@test.com', '$2a$10$Vd.jFWVjLBNTGO58B/5fO.yGh2BRhY3iQP1sC8YK9pNM7SaLn8i5.', 
+        (SELECT id FROM role WHERE name = 'MANAGER'), NOW(), NOW());
 
 INSERT INTO "user" (email, password, role_id, created_at, updated_at)
-SELECT 'technician@test.com', '$2a$10$slYQmyNdGzin7olVN3p5Be7DQwAjqAH5eNjigNV9nUtNrgQlC/v0m', r.id, NOW(), NOW()
-FROM role r WHERE r.name = 'TECHNICIAN'
-ON CONFLICT (email) DO NOTHING;
+VALUES ('technician@test.com', '$2a$10$2RmSU5BqBkOKP4M0q.LyLOx0V6U6.qPV7lPvCJPyLhWJLLWOYEPEm', 
+        (SELECT id FROM role WHERE name = 'TECHNICIAN'), NOW(), NOW());
 
 INSERT INTO "user" (email, password, role_id, created_at, updated_at)
-SELECT 'user@test.com', '$2a$10$slYQmyNdGzin7olVN3p5Be7DQwAjqAH5eNjigNV9nUtNrgQlC/v0m', r.id, NOW(), NOW()
-FROM role r WHERE r.name = 'USER'
-ON CONFLICT (email) DO NOTHING;
+VALUES ('user@test.com', '$2a$10$2h0UKpKe1K8pOKFPkVLFGuO/xLZcXrPKmSjQp5LJnFMr6TCKh8Qr.', 
+        (SELECT id FROM role WHERE name = 'USER'), NOW(), NOW());
 
--- Create sample assets
+-- Create sample assets (using user_id 1 as creator)
 INSERT INTO asset (code, name, description, status, created_by, created_at, updated_at)
 VALUES 
   ('TST-001', 'Alpha Equipment', 'Test asset alpha', 'OPERATIONAL', 1, NOW(), NOW()),
-  ('TST-002', 'Beta Equipment', 'Test asset beta', 'UNDER_MAINTENANCE', 1, NOW(), NOW())
-ON CONFLICT DO NOTHING;
+  ('TST-002', 'Beta Equipment', 'Test asset beta', 'UNDER_MAINTENANCE', 1, NOW(), NOW());
