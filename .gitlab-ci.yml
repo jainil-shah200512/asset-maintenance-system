@@ -119,12 +119,31 @@ test-frontend:
 test-api-newman:
   stage: test
   image: node:24-bullseye
-  allow_failure: true
+  services:
+    - postgres:15
+  variables:
+    POSTGRES_DB: asset_maintenance
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    POSTGRES_HOST_AUTH_METHOD: trust
   cache:
     key: "$CI_COMMIT_REF_SLUG-automation"
     paths:
       - automation/node_modules/
+      - .m2/repository/
   before_script:
+    # Install Java and Maven
+    - apt-get update -qq && apt-get install -y -qq openjdk-17-jre-headless maven curl
+    # Build backend
+    - cd backend
+    - mvn clean package -DskipTests -q
+    - cd ..
+    # Start backend in background
+    - java -Dspring.datasource.url=jdbc:postgresql://postgres:5432/asset_maintenance -Dspring.datasource.username=postgres -Dspring.datasource.password=postgres -Dserver.port=8080 -jar backend/target/*.jar > /tmp/backend.log 2>&1 &
+    - sleep 15
+    - echo "✓ Backend started, checking health..."
+    - curl -f http://localhost:8080/api/assets || (echo "Backend failed to start. Logs:" && cat /tmp/backend.log && exit 1)
+    # Setup npm and tests
     - cd automation
     - npm ci
     - mkdir -p /tmp
@@ -135,18 +154,17 @@ test-api-newman:
         id: 'ci-environment',
         name: 'CI Environment',
         values: [
-          {key: 'api_url', value: process.env.API_URL || '', type: 'string', enabled: true},
-          {key: 'manager_email', value: process.env.MANAGER_EMAIL || '', type: 'string', enabled: true},
-          {key: 'manager_password', value: process.env.MANAGER_PASSWORD || '', type: 'string', enabled: true},
-          {key: 'technician_email', value: process.env.TECHNICIAN_EMAIL || '', type: 'string', enabled: true},
-          {key: 'technician_password', value: process.env.TECHNICIAN_PASSWORD || '', type: 'string', enabled: true},
-          {key: 'user_email', value: process.env.USER_EMAIL || '', type: 'string', enabled: true},
-          {key: 'user_password', value: process.env.USER_PASSWORD || '', type: 'string', enabled: true}
+          {key: 'api_url', value: 'http://localhost:8080/api', type: 'string', enabled: true},
+          {key: 'manager_email', value: process.env.MANAGER_EMAIL || 'manager@test.com', type: 'string', enabled: true},
+          {key: 'manager_password', value: process.env.MANAGER_PASSWORD || 'Manager@1234', type: 'string', enabled: true},
+          {key: 'technician_email', value: process.env.TECHNICIAN_EMAIL || 'technician@test.com', type: 'string', enabled: true},
+          {key: 'technician_password', value: process.env.TECHNICIAN_PASSWORD || 'Tech@1234', type: 'string', enabled: true},
+          {key: 'user_email', value: process.env.USER_EMAIL || 'user@test.com', type: 'string', enabled: true},
+          {key: 'user_password', value: process.env.USER_PASSWORD || 'User@1234', type: 'string', enabled: true}
         ]
       };
       fs.writeFileSync('/tmp/ci-env.json', JSON.stringify(envFile, null, 2));
       console.log('✓ Environment file created');
-      console.log(JSON.stringify(envFile, null, 2));
       "
   script:
     - npm run test:api -- --environment /tmp/ci-env.json
