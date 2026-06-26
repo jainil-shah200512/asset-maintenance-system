@@ -1,0 +1,13 @@
+workspace:
+  id: e40b7e61-7180-48b3-8a31-30d25e48c081
+localResources:
+  collections:
+    - ..\Asset-Maintenance-API.postman_collection.json
+    - ../Asset-Maintenance-API.postman_collection.json
+  environments:
+    - ..\Asset-Maintenance-Local.postman_environment.json
+cloudResources:
+  collections:
+    ../Asset-Maintenance-API.postman_collection.json: 55400397-asset-maintenance-api-collection
+  environments:
+    ../postman/environments/Asset Maintenance — Local.environment.yaml: 55400397-312035ee-d2e7-474e-8380-784538d7f607
