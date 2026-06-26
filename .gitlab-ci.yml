@@ -155,12 +155,12 @@ test-api-newman:
         name: 'CI Environment',
         values: [
           {key: 'api_url', value: 'http://127.0.0.1:8080/api', type: 'string', enabled: true},
-          {key: 'manager_email', value: process.env.MANAGER_EMAIL || 'manager@test.com', type: 'string', enabled: true},
-          {key: 'manager_password', value: process.env.MANAGER_PASSWORD || 'Manager@1234', type: 'string', enabled: true},
-          {key: 'technician_email', value: process.env.TECHNICIAN_EMAIL || 'technician@test.com', type: 'string', enabled: true},
-          {key: 'technician_password', value: process.env.TECHNICIAN_PASSWORD || 'Tech@1234', type: 'string', enabled: true},
-          {key: 'user_email', value: process.env.USER_EMAIL || 'user@test.com', type: 'string', enabled: true},
-          {key: 'user_password', value: process.env.USER_PASSWORD || 'User@1234', type: 'string', enabled: true}
+          {key: 'manager_email', value: 'manager@siemens.com', type: 'string', enabled: true},
+          {key: 'manager_password', value: 'password123', type: 'string', enabled: true},
+          {key: 'technician_email', value: 'technician@siemens.com', type: 'string', enabled: true},
+          {key: 'technician_password', value: 'password123', type: 'string', enabled: true},
+          {key: 'user_email', value: 'user@siemens.com', type: 'string', enabled: true},
+          {key: 'user_password', value: 'password123', type: 'string', enabled: true}
         ]
       };
       fs.writeFileSync('/tmp/ci-env.json', JSON.stringify(envFile, null, 2));
