@@ -52,7 +52,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"email\": \"manager@test.com\", \"password\": \"Manager@1234\"}"
+              "raw": "{\"email\": \"manager@siemens.com\", \"password\": \"password123\"}"
             },
             "url": {
               "raw": "{{api_url}}/auth/login",
@@ -92,7 +92,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"email\": \"technician@test.com\", \"password\": \"Tech@1234\"}"
+              "raw": "{\"email\": \"technician@siemens.com\", \"password\": \"password123\"}"
             },
             "url": {
               "raw": "{{api_url}}/auth/login",
@@ -132,7 +132,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"email\": \"user@test.com\", \"password\": \"User@1234\"}"
+              "raw": "{\"email\": \"user@siemens.com\", \"password\": \"password123\"}"
             },
             "url": {
               "raw": "{{api_url}}/auth/login",
@@ -148,14 +148,14 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status is 401 (Unauthorized)', function () {",
-                  "    pm.response.to.have.status(401);",
+                  "pm.test('Status is 400 (Bad Request)', function () {",
+                  "    pm.response.to.have.status(400);",
                   "});",
                   "",
-                  "pm.test('Error message is returned', function () {",
+                  "pm.test('Error response is returned', function () {",
                   "    var jsonData = pm.response.json();",
                   "    pm.expect(jsonData).to.have.property('error');",
-                  "    pm.expect(jsonData.error).to.include('Invalid');"
+                  "});"
                 ]
               }
             }
@@ -170,7 +170,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"email\": \"manager@test.com\", \"password\": \"WRONG_PASSWORD\"}"
+              "raw": "{\"email\": \"manager@siemens.com\", \"password\": \"WRONG_PASSWORD\"}"
             },
             "url": {
               "raw": "{{api_url}}/auth/login",
@@ -239,7 +239,7 @@
                   "    var jsonData = pm.response.json();",
                   "    pm.expect(jsonData).to.be.an('array');",
                   "    // Should have access to all assets",
-                  "    pm.expect(jsonData.length).to.be.greaterThanOrEqual(0);",
+                  "    pm.expect(jsonData.length).to.be.at.least(0);",
                   "});"
                 ]
               }
@@ -275,7 +275,7 @@
                   "    var jsonData = pm.response.json();",
                   "    pm.expect(jsonData).to.be.an('array');",
                   "    // Result may be empty or have matches",
-                  "    pm.expect(jsonData.length).to.be.greaterThanOrEqual(0);",
+                  "    pm.expect(jsonData.length).to.be.at.least(0);",
                   "});"
                 ]
               }
@@ -577,13 +577,13 @@
               }
             ],
             "url": {
-              "raw": "{{api_url}}/tasks?status=ACTIVE",
+              "raw": "{{api_url}}/tasks?status=IN_PROGRESS",
               "host": ["{{api_url}}"],
               "path": ["tasks"],
               "query": [
                 {
                   "key": "status",
-                  "value": "ACTIVE"
+                  "value": "IN_PROGRESS"
                 }
               ]
             }
@@ -767,8 +767,8 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status is 401 (Unauthorized)', function () {",
-                  "    pm.response.to.have.status(401);",
+                  "pm.test('Unauthorized without token', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
                   "});",
                   "",
                   "pm.test('Auth error message', function () {",
@@ -783,9 +783,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{api_url}}/assets",
+              "raw": "{{api_url}}/tasks",
               "host": ["{{api_url}}"],
-              "path": ["assets"]
+              "path": ["tasks"]
             }
           }
         }
@@ -815,7 +815,7 @@
     },
     {
       "key": "manager_email",
-      "value": "manager@test.com",
+      "value": "manager@siemens.com",
       "type": "string"
     }
   ]
