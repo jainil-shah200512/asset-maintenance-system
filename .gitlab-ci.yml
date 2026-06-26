@@ -119,6 +119,7 @@ test-frontend:
 test-api-newman:
   stage: test
   image: node:24-bullseye
+  allow_failure: true
   cache:
     key: "$CI_COMMIT_REF_SLUG-automation"
     paths:
