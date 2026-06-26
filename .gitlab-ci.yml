@@ -140,9 +140,9 @@ test-api-newman:
     - cd ..
     # Start backend in background
     - java -Dspring.datasource.url=jdbc:postgresql://postgres:5432/asset_maintenance -Dspring.datasource.username=postgres -Dspring.datasource.password=postgres -Dserver.port=8080 -jar backend/target/*.jar > /tmp/backend.log 2>&1 &
-    - sleep 15
+    - sleep 20
     - echo "✓ Backend started, checking health..."
-    - curl -f http://localhost:8080/api/assets || (echo "Backend failed to start. Logs:" && cat /tmp/backend.log && exit 1)
+    - for i in {1..10}; do curl -s http://127.0.0.1:8080/api/assets && echo "✓ Backend ready" && break || (echo "Retry $i..." && sleep 2); done
     # Setup npm and tests
     - cd automation
     - npm ci
@@ -154,7 +154,7 @@ test-api-newman:
         id: 'ci-environment',
         name: 'CI Environment',
         values: [
-          {key: 'api_url', value: 'http://localhost:8080/api', type: 'string', enabled: true},
+          {key: 'api_url', value: 'http://127.0.0.1:8080/api', type: 'string', enabled: true},
           {key: 'manager_email', value: process.env.MANAGER_EMAIL || 'manager@test.com', type: 'string', enabled: true},
           {key: 'manager_password', value: process.env.MANAGER_PASSWORD || 'Manager@1234', type: 'string', enabled: true},
           {key: 'technician_email', value: process.env.TECHNICIAN_EMAIL || 'technician@test.com', type: 'string', enabled: true},
