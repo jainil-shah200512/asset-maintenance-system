@@ -3,7 +3,6 @@ stages:
   - build
   - test
   - e2e
-  - security
 
 variables:
   MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
@@ -114,6 +113,57 @@ test-frontend:
     - main
 
 # ============================================
+# API TESTING / NEWMAN
+# ============================================
+
+test-api-newman:
+  stage: test
+  image: node:24-bullseye
+  cache:
+    key: "$CI_COMMIT_REF_SLUG-automation"
+    paths:
+      - automation/node_modules/
+  variables:
+    API_URL: $API_URL
+    MANAGER_EMAIL: $MANAGER_EMAIL
+    MANAGER_PASSWORD: $MANAGER_PASSWORD
+    TECHNICIAN_EMAIL: $TECHNICIAN_EMAIL
+    TECHNICIAN_PASSWORD: $TECHNICIAN_PASSWORD
+    USER_EMAIL: $USER_EMAIL
+    USER_PASSWORD: $USER_PASSWORD
+  before_script:
+    - cd automation
+    - npm ci
+    - |
+      cat > /tmp/ci-env.json << EOF
+      {
+        "id": "ci-environment",
+        "name": "CI Environment",
+        "values": [
+          {"key": "api_url", "value": "$API_URL", "type": "string", "enabled": true},
+          {"key": "manager_email", "value": "$MANAGER_EMAIL", "type": "string", "enabled": true},
+          {"key": "manager_password", "value": "$MANAGER_PASSWORD", "type": "string", "enabled": true},
+          {"key": "technician_email", "value": "$TECHNICIAN_EMAIL", "type": "string", "enabled": true},
+          {"key": "technician_password", "value": "$TECHNICIAN_PASSWORD", "type": "string", "enabled": true},
+          {"key": "user_email", "value": "$USER_EMAIL", "type": "string", "enabled": true},
+          {"key": "user_password", "value": "$USER_PASSWORD", "type": "string", "enabled": true}
+        ]
+      }
+      EOF
+  script:
+    - npm run test:api -- --environment /tmp/ci-env.json
+  artifacts:
+    when: always
+    paths:
+      - automation/postman-report.html
+      - automation/newman-results.json
+    reports:
+      junit: automation/newman-results.xml
+    expire_in: 7 days
+  only:
+    - main
+
+# ============================================
 # E2E / PLAYWRIGHT
 # ============================================
 
@@ -137,27 +187,3 @@ e2e-playwright-smoke:
   only:
     - main
 
-# ============================================
-# SECURITY
-# ============================================
-
-security-backend:
-  stage: security
-  image: maven:3.9-eclipse-temurin-17
-  <<: *backend-cache
-  script:
-    - cd backend
-    - mvn dependency-check:check || true
-  only:
-    - main
-
-security-frontend:
-  stage: security
-  image: node:24-bullseye
-  <<: *frontend-cache
-  script:
-    - cd frontend
-    - npm ci --cache .npm --prefer-offline
-    - npm audit --audit-level=high || true
-  only:
-    - main

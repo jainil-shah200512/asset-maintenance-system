@@ -1,0 +1,29 @@
+{
+  "name": "asset-maintenance-automation",
+  "version": "1.0.0",
+  "description": "Playwright E2E automation for Asset Maintenance System — localhost-first",
+  "type": "commonjs",
+  "scripts": {
+    "install:browsers": "playwright install chromium",
+    "seed": "node setup/seed.js",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "test:auth": "playwright test tests/01-auth/ --workers=1",
+    "test:assets": "playwright test tests/02-assets/ --workers=1",
+    "test:tasks": "playwright test tests/03-tasks/ --workers=1",
+    "test:dashboard": "playwright test tests/04-dashboard/ --workers=1",
+    "smoke": "playwright test tests/01-auth/ tests/02-assets/ tests/04-dashboard/ --workers=1",
+    "smoke:headed": "playwright test tests/01-auth/ tests/02-assets/ tests/04-dashboard/ --headed --workers=1",
+    "test:api": "newman run postman/Asset-Maintenance-API.postman_collection.json --reporters cli,json,junit --reporter-json-export newman-results.json --reporter-junit-export newman-results.xml"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7",
+    "newman-reporter-html": "^1.0.5",
+    "pg": "^8.13.3"
+  }
+}
